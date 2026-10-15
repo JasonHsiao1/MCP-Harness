@@ -86,16 +86,17 @@ To connect Antigravity, Claude Desktop, or VS Code to this MCP server:
 
 ---
 
-## 4. Hardware Hookup Guide
+## 5. Ray-Ban Meta Bluetooth Voice Bridge (Hands-Free)
 
-### Option 1: ESP32-S3 Native USB (Self-Debugged)
-- Connect the **USB** port (native USB, not UART) of the ESP32-S3 DevKit to your PC.
-- OpenOCD connects directly to ESP32-S3's internal `esp_usb_jtag`. No external probe needed.
+No Xcode, Mac, or iOS app required! You can pair your Ray-Ban Meta Gen 2 glasses directly to Windows as a Bluetooth audio headset:
 
-### Option 2: Raspberry Pi Pico Debug Probe (`debugprobe`)
-- Flash `debugprobe.uf2` onto a Raspberry Pi Pico.
-- Connect Pico SWD pins to the target board on the AI-Deck's 2x8 debug header:
-  - `Pin 1 (SWCLK)` -> Target SWCLK
-  - `Pin 2 (GND)`   -> Target GND
-  - `Pin 3 (SWDIO)` -> Target SWDIO
-  - `UART TX/RX`    -> Target RX/TX
+1. **Pairing Mode**: Place glasses in the case, leave the lid open, hold the back button for 5 seconds until the LED pulses blue.
+2. **Windows Bluetooth**: Open **Settings > Bluetooth & devices > Add device > Bluetooth** and select **Ray-Ban Meta**.
+3. **Run Voice Bridge**:
+   ```powershell
+   cd harness
+   .\.venv\Scripts\python.exe voice_bridge.py
+   ```
+   * `--test-tts`: Verify audio playback through your glasses speakers.
+   * `--test-mic`: Verify voice capture from the glasses 5-mic array.
+   * Once running, simply talk into your glasses: *"Flash the firmware"*, *"Read serial logs"*, or *"Compile project"*, and listen to the spoken responses in your ears!

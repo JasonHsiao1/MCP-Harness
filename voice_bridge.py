@@ -106,7 +106,14 @@ class GlassesVoiceBridge:
             else:
                 return f"Could not read serial port. {res.get('error', '')}"
 
-        # 4. Device Discovery
+        # 4. Visualizer / "Show me"
+        elif any(w in low for w in ["show me", "visualize", "diagram", "schematic", "circuit", "pinout", "display"]):
+            import webbrowser
+            viz_path = HARNESS_DIR / "visualizer" / "index.html"
+            webbrowser.open(viz_path.as_uri())
+            return "Opening the circuit diagram and interactive simulator on your screen now."
+
+        # 5. Device Discovery
         elif any(w in low for w in ["device", "devices", "board", "connected", "port"]):
             devs = list_serial_devices()
             if devs and "port" in devs[0]:

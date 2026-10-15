@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Deck Hardware & Circuit Visualizer</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .wire-current {
+      stroke-dasharray: 6;
+      animation: dash 1s linear infinite;
+    }
+    @keyframes dash {
+      to { stroke-dashoffset: -12; }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-6 font-sans">
+  <div class="max-w-6xl mx-auto space-y-6">
+    <!-- Header Bar -->
+    <header class="flex flex-col md:flex-row items-start md:items-center justify-between pb-4 border-b border-slate-800 gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+          <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">AI-Deck Circuit Visualizer & Simulator</h1>
+        </div>
+        <p class="text-sm text-slate-400 mt-0.5">Ray-Ban Meta Audio Companion | ESP32-S3 Hardware Debugger</p>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
+        <button id="mode-sim" onclick="setMode('sim')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-sm transition">
+          ⚡ Interactive Simulator
+        </button>
+        <button id="mode-debug" onclick="setMode('debug')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition">
+          🔍 Debug Inspector & Wiring Guide
+        </button>
+        <button id="mode-pinout" onclick="setMode('pinout')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition">
+          📌 Pinout Overlay
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Interactive SVG Canvas (2 Columns) -->
+      <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Bench View</span>
+            <span id="status-badge" class="px-2 py-0.5 text-xs rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">
+              Mode: Simulator (Click Button to Test)
+            </span>
+          </div>
+          <div class="text-xs text-slate-400">
+            GPIO 4 State: <span id="gpio4-val" class="font-mono font-bold text-amber-400">LOW (0.0V)</span>
+          </div>
+        </div>
+
+        <!-- Breadboard & ESP32-S3 Interactive SVG -->
+        <div class="w-full overflow-x-auto">
+          <svg viewBox="0 0 820 480" class="w-full h-auto select-none">
+            <defs>
+              <linearGradient id="mcu-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#1e293b"/>
+                <stop offset="100%" stop-color="#0f172a"/>
+              </linearGradient>
+              <linearGradient id="bb-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f8fafc"/>
+                <stop offset="100%" stop-color="#e2e8f0"/>
+              </linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            <!-- BREADBOARD BASE -->
+            <rect x="280" y="40" width="510" height="400" rx="14" fill="url(#bb-grad)" stroke="#cbd5e1" stroke-width="3" />
+            
+            <!-- Power Rails (Top & Bottom) -->
+            <!-- Top Red Rail (+) -->
+            <line x1="310" y1="65" x2="760" y2="65" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+            <text x="295" y="69" fill="#ef4444" font-size="14" font-weight="bold">+</text>
+            <!-- Top Blue Rail (-) -->
+            <line x1="310" y1="90" x2="760" y2="90" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+            <text x="295" y="94" fill="#3b82f6" font-size="16" font-weight="bold">-</text>
+
+            <!-- Bottom Blue Rail (-) -->
+            <line x1="310" y1="390" x2="760" y2="390" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+            <text x="295" y="394" fill="#3b82f6" font-size="16" font-weight="bold">-</text>
+            <!-- Bottom Red Rail (+) -->
+            <line x1="310" y1="415" x2="760" y2="415" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+            <text x="295" y="419" fill="#ef4444" font-size="14" font-weight="bold">+</text>
+
+            <!-- Center Ravine Divider -->
+            <rect x="300" y="235" width="470" height="10" fill="#94a3b8" opacity="0.4" rx="3"/>
+
+            <!-- Breadboard Tie-Point Grid (Rows 1 to 25) -->
+            <g id="tie-points" opacity="0.45">
+              <!-- Grid rendered with subtle tie-point dots -->
+              <script>
+                // Will render dots dynamically or inline
+              </script>
+            </g>
+
+            <!-- Row labels -->
+            <text x="360" y="244" fill="#64748b" font-size="10" font-family="monospace">ROW 10</text>
+            <text x="460" y="244" fill="#64748b" font-size="10" font-family="monospace">ROW 15 (GPIO 4)</text>
+            <text x="580" y="244" fill="#64748b" font-size="10" font-family="monospace">ROW 20</text>
+
+            <!-- ESP32-S3 DEVKITC-1 MODULE (Left Side) -->
+            <g id="esp32-s3-board" transform="translate(30, 70)">
+              <!-- PCB -->
+              <rect x="0" y="0" width="210" height="340" rx="8" fill="url(#mcu-grad)" stroke="#334155" stroke-width="2"/>
+              
+              <!-- Metal Shield Can (ESP32-S3-WROOM) -->
+              <rect x="35" y="90" width="140" height="140" rx="4" fill="#94a3b8" stroke="#64748b" stroke-width="1.5"/>
+              <text x="55" y="150" fill="#0f172a" font-size="12" font-weight="bold" font-family="monospace">ESP32-S3</text>
+              <text x="55" y="170" fill="#334155" font-size="9" font-family="monospace">Wi-Fi + BT 5 LE</text>
+              
+              <!-- Dual USB-C Connectors -->
+              <!-- UART USB Port -->
+              <rect x="30" y="-12" width="40" height="18" rx="3" fill="#cbd5e1" stroke="#475569" stroke-width="1.5"/>
+              <text x="35" y="16" fill="#64748b" font-size="8" font-family="monospace">UART</text>
+              <!-- Native USB Port (Active) -->
+              <rect x="140" y="-12" width="40" height="18" rx="3" fill="#38bdf8" stroke="#0284c7" stroke-width="2"/>
+              <text x="145" y="16" fill="#0284c7" font-size="8" font-weight="bold" font-family="monospace">USB-JTAG</text>
+
+              <!-- Onboard RGB NeoPixel LED (GPIO 38) -->
+              <g id="neopixel-group" transform="translate(105, 50)">
+                <circle id="neopixel-glow" cx="0" cy="0" r="16" fill="#ec4899" opacity="0.4" filter="url(#glow)"/>
+                <rect x="-8" y="-8" width="16" height="16" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+                <circle id="neopixel-bulb" cx="0" cy="0" r="5" fill="#f43f5e"/>
+                <text x="-24" y="-12" fill="#e2e8f0" font-size="9" font-weight="bold" font-family="monospace">GPIO 38 (RGB)</text>
+              </g>
+
+              <!-- Pin Headers Left & Right -->
+              <rect x="6" y="25" width="12" height="290" fill="#020617" rx="2"/>
+              <rect x="192" y="25" width="12" height="290" fill="#020617" rx="2"/>
+
+              <!-- Highlighted Pins -->
+              <!-- 3.3V Pin -->
+              <circle cx="12" cy="50" r="4" fill="#ef4444"/>
+              <text x="24" y="53" fill="#ef4444" font-size="9" font-weight="bold">3V3</text>
+
+              <!-- GND Pin -->
+              <circle cx="12" cy="70" r="4" fill="#3b82f6"/>
+              <text x="24" y="73" fill="#3b82f6" font-size="9" font-weight="bold">GND</text>
+
+              <!-- GPIO 4 Pin -->
+              <circle id="pin-gpio4" cx="198" cy="110" r="5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+              <text x="155" y="113" fill="#f59e0b" font-size="10" font-weight="bold">GPIO 4</text>
+
+              <!-- GPIO 0 BOOT Button -->
+              <rect x="25" y="270" width="18" height="18" rx="3" fill="#475569" stroke="#64748b"/>
+              <text x="22" y="302" fill="#94a3b8" font-size="8">BOOT (0)</text>
+            </g>
+
+            <!-- BREADBOARD COMPONENTS & WIRING -->
+
+            <!-- 1. Red 3.3V Power Jumper Wire (ESP32 3V3 -> Red Rail) -->
+            <path d="M 42 120 C 100 20, 240 20, 340 65" fill="none" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round"/>
+            
+            <!-- 2. Blue GND Power Jumper Wire (ESP32 GND -> Blue Rail) -->
+            <path d="M 42 140 C 90 30, 250 50, 360 90" fill="none" stroke="#3b82f6" stroke-width="3.5" stroke-linecap="round"/>
+
+            <!-- 3. Signal Wire: ESP32 GPIO 4 -> Breadboard Row 15 -->
+            <path id="wire-signal" d="M 228 180 C 300 180, 400 140, 480 150" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round"/>
+
+            <!-- 4. 10k Ohm Pull-Down Resistor (Row 15 to GND Rail) -->
+            <g id="resistor" transform="translate(480, 150)">
+              <!-- Wire lead to GND rail -->
+              <path d="M 0 0 L 0 -60" fill="none" stroke="#94a3b8" stroke-width="2.5"/>
+              <!-- Resistor Body -->
+              <rect x="-6" y="-45" width="12" height="28" rx="4" fill="#d97706" stroke="#b45309" stroke-width="1"/>
+              <!-- Color Bands (10k: Brown, Black, Orange, Gold) -->
+              <rect x="-6" y="-41" width="12" height="3" fill="#78350f"/> <!-- Brown (1) -->
+              <rect x="-6" y="-35" width="12" height="3" fill="#020617"/> <!-- Black (0) -->
+              <rect x="-6" y="-29" width="12" height="3" fill="#ea580c"/> <!-- Orange (x1k) -->
+              <rect x="-6" y="-22" width="12" height="2" fill="#fef08a"/> <!-- Gold (5%) -->
+              <text x="12" y="-30" fill="#fbbf24" font-size="10" font-weight="bold">10kΩ</text>
+            </g>
+
+            <!-- 5. Tactile Pushbutton (Mounted across center ravine: Row 15 to Row 18) -->
+            <g id="button-group" transform="translate(460, 210)" class="cursor-pointer" onclick="toggleButton()">
+              <!-- Switch Body -->
+              <rect x="0" y="0" width="44" height="44" rx="6" fill="#334155" stroke="#1e293b" stroke-width="2"/>
+              <!-- Metal Bracket -->
+              <rect x="4" y="4" width="36" height="36" rx="4" fill="#64748b"/>
+              <!-- Button Plunger (Clickable) -->
+              <circle id="button-plunger" cx="22" cy="22" r="12" fill="#0284c7" stroke="#0369a1" stroke-width="2"/>
+              <circle id="button-ring" cx="22" cy="22" r="16" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0"/>
+              <text x="6" y="58" fill="#e2e8f0" font-size="9" font-weight="bold">CLICK ME</text>
+            </g>
+
+            <!-- 6. 3.3V Jumper wire from Red Rail to Pushbutton Terminal (Row 18) -->
+            <path id="wire-vcc-switch" d="M 420 65 C 440 120, 480 200, 482 254" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/>
+
+            <!-- Current Flow Indicator Particle Animation -->
+            <path id="current-path" d="M 420 65 C 440 120, 480 200, 482 254 L 480 150 C 400 140, 300 180, 228 180" fill="none" stroke="#38bdf8" stroke-width="2.5" class="wire-current" opacity="0"/>
+
+            <!-- Error Callout / Inspection Overlay (Visible in Debug Mode) -->
+            <g id="debug-overlay" opacity="0" pointer-events="none">
+              <!-- Pin check badge -->
+              <rect x="430" y="115" width="130" height="26" rx="6" fill="#065f46" stroke="#10b981" stroke-width="1.5"/>
+              <text x="440" y="132" fill="#ecfdf5" font-size="10" font-weight="bold">✓ GPIO 4 Correct</text>
+
+              <!-- Resistor check badge -->
+              <rect x="520" y="70" width="140" height="26" rx="6" fill="#065f46" stroke="#10b981" stroke-width="1.5"/>
+              <text x="528" y="87" fill="#ecfdf5" font-size="10" font-weight="bold">✓ 10k Pull-Down OK</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Simulator Action Bar -->
+        <div class="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex items-center gap-3">
+            <button onclick="pressAndHoldButton()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold rounded-lg shadow transition">
+              🔘 Hold Button (Simulate Press)
+            </button>
+            <button onclick="releaseButton()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-semibold rounded-lg transition">
+              Release
+            </button>
+          </div>
+          <div class="text-slate-400">
+            Current Rainbow Color: <span id="color-label" class="font-bold text-rose-400">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Telemetry & Diagnostic Panel (1 Column) -->
+      <div class="space-y-6">
+        <!-- Live MCU State Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center justify-between">
+            <span>Hardware Telemetry</span>
+            <span class="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">COM3: CONNECTED</span>
+          </h2>
+
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between py-1 border-b border-slate-800">
+              <span class="text-slate-400">MCU Target:</span>
+              <span class="font-mono text-slate-200">ESP32-S3 (Xtensa Dual-Core)</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800">
+              <span class="text-slate-400">JTAG Debugger:</span>
+              <span class="font-mono text-emerald-400">Native USB-JTAG</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800">
+              <span class="text-slate-400">GPIO 4 (Button):</span>
+              <span id="tel-gpio4" class="font-mono font-bold text-amber-400">0 (LOW)</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800">
+              <span class="text-slate-400">GPIO 38 (NeoPixel):</span>
+              <span id="tel-rgb" class="font-mono text-slate-200">RGB(0, 0, 0)</span>
+            </div>
+            <div class="flex justify-between py-1">
+              <span class="text-slate-400">MMIO 0x60004004:</span>
+              <span id="tel-mmio" class="font-mono text-indigo-400">0x00000000</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Voice / Glasses Guide Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <span>👓 Ray-Ban Meta Voice Guide</span>
+          </h2>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            When wearing the glasses, say commands out loud. The audio plays directly in your ears:
+          </p>
+          <div class="space-y-1.5 text-xs font-mono">
+            <div class="bg-slate-950 p-2 rounded border border-slate-800 text-indigo-300">
+              🗣️ "Show me the circuit diagram"
+            </div>
+            <div class="bg-slate-950 p-2 rounded border border-slate-800 text-emerald-300">
+              🗣️ "Flash the firmware to ESP32"
+            </div>
+            <div class="bg-slate-950 p-2 rounded border border-slate-800 text-amber-300">
+              🗣️ "Read serial logs"
+            </div>
+          </div>
+        </div>
+
+        <!-- Common Breadboard Pitfalls (Educational Callout) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">Wiring Rules Checklist</h3>
+          <ul class="text-xs text-slate-400 space-y-1.5 list-disc pl-4">
+            <li><strong>Pull-Down Resistor:</strong> Must connect from GPIO 4 to the blue GND rail (not VCC).</li>
+            <li><strong>Pushbutton Across Ravine:</strong> Pins bridge across the center notch to prevent shorting.</li>
+            <li><strong>VCC Connection:</strong> One side of switch connects to 3.3V red rail.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let isPressed = false;
+    let currentColorIdx = 0;
+    let rainbowInterval = null;
+
+    const RAINBOW = [
+      { name: "Red",     hex: "#ef4444", r: 60, g: 0,  b: 0 },
+      { name: "Orange",  hex: "#f97316", r: 60, g: 25, b: 0 },
+      { name: "Yellow",  hex: "#eab308", r: 50, g: 50, b: 0 },
+      { name: "Green",   hex: "#22c55e", r: 0,  g: 60, b: 0 },
+      { name: "Cyan",    hex: "#06b6d4", r: 0,  g: 50, b: 50 },
+      { name: "Blue",    hex: "#3b82f6", r: 0,  g: 0,  b: 60 },
+      { name: "Indigo",  hex: "#6366f1", r: 25, g: 0,  b: 50 },
+      { name: "Violet",  hex: "#a855f7", r: 50, g: 0,  b: 45 }
+    ];
+
+    function toggleButton() {
+      if (isPressed) {
+        releaseButton();
+      } else {
+        pressAndHoldButton();
+      }
+    }
+
+    function pressAndHoldButton() {
+      isPressed = true;
+      document.getElementById("button-plunger").setAttribute("fill", "#0284c7");
+      document.getElementById("button-ring").setAttribute("opacity", "1");
+      document.getElementById("gpio4-val").innerText = "HIGH (3.3V)";
+      document.getElementById("gpio4-val").className = "font-mono font-bold text-emerald-400";
+      document.getElementById("tel-gpio4").innerText = "1 (HIGH)";
+      document.getElementById("tel-gpio4").className = "font-mono font-bold text-emerald-400";
+      document.getElementById("tel-mmio").innerText = "0x00000010"; // Bit 4 set
+
+      // Show current path
+      document.getElementById("current-path").setAttribute("opacity", "0.8");
+
+      // Start rainbow cycling
+      if (!rainbowInterval) {
+        cycleRainbow();
+        rainbowInterval = setInterval(cycleRainbow, 400);
+      }
+    }
+
+    function releaseButton() {
+      isPressed = false;
+      document.getElementById("button-plunger").setAttribute("fill", "#475569");
+      document.getElementById("button-ring").setAttribute("opacity", "0");
+      document.getElementById("gpio4-val").innerText = "LOW (0.0V)";
+      document.getElementById("gpio4-val").className = "font-mono font-bold text-amber-400";
+      document.getElementById("tel-gpio4").innerText = "0 (LOW)";
+      document.getElementById("tel-gpio4").className = "font-mono font-bold text-amber-400";
+      document.getElementById("tel-mmio").innerText = "0x00000000";
+
+      document.getElementById("current-path").setAttribute("opacity", "0");
+
+      if (rainbowInterval) {
+        clearInterval(rainbowInterval);
+        rainbowInterval = null;
+      }
+
+      // Turn off NeoPixel
+      document.getElementById("neopixel-glow").setAttribute("opacity", "0");
+      document.getElementById("neopixel-bulb").setAttribute("fill", "#475569");
+      document.getElementById("color-label").innerText = "OFF";
+      document.getElementById("color-label").className = "font-bold text-slate-500";
+      document.getElementById("tel-rgb").innerText = "RGB(0, 0, 0)";
+    }
+
+    function cycleRainbow() {
+      const c = RAINBOW[currentColorIdx];
+      document.getElementById("neopixel-glow").setAttribute("fill", c.hex);
+      document.getElementById("neopixel-glow").setAttribute("opacity", "0.8");
+      document.getElementById("neopixel-bulb").setAttribute("fill", c.hex);
+      
+      document.getElementById("color-label").innerText = c.name;
+      document.getElementById("color-label").style.color = c.hex;
+      document.getElementById("tel-rgb").innerText = `RGB(${c.r}, ${c.g}, ${c.b})`;
+
+      currentColorIdx = (currentColorIdx + 1) % RAINBOW.length;
+    }
+
+    function setMode(mode) {
+      const simBtn = document.getElementById("mode-sim");
+      const dbgBtn = document.getElementById("mode-debug");
+      const pinBtn = document.getElementById("mode-pinout");
+      const badge = document.getElementById("status-badge");
+      const overlay = document.getElementById("debug-overlay");
+
+      simBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition";
+      dbgBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition";
+      pinBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition";
+
+      if (mode === 'sim') {
+        simBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-sm transition";
+        badge.innerText = "Mode: Simulator (Click Button to Test)";
+        overlay.setAttribute("opacity", "0");
+      } else if (mode === 'debug') {
+        dbgBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white shadow-sm transition";
+        badge.innerText = "Mode: Debugging (Correct Wiring Highlighted)";
+        overlay.setAttribute("opacity", "1");
+      } else if (mode === 'pinout') {
+        pinBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 text-white shadow-sm transition";
+        badge.innerText = "Mode: Pinout Reference (ESP32-S3 DevKit)";
+        overlay.setAttribute("opacity", "0");
+      }
+    }
+  </script>
+</body>
+</html>

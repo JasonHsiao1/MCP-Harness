@@ -7,6 +7,9 @@ import requests
 from PIL import Image
 
 
+from config import get_gemini_api_key
+
+
 def analyze_circuit_wiring(
     image_path: str,
     target_description: str,
@@ -26,7 +29,7 @@ def analyze_circuit_wiring(
     if not img_file.exists():
         return {"success": False, "error": f"Image file not found: {img_file}"}
 
-    key = api_key or os.environ.get("GEMINI_API_KEY")
+    key = api_key or get_gemini_api_key()
     if not key:
         return {
             "success": False,
@@ -64,7 +67,11 @@ Format your response as a structured analysis:
 - CORRECTIONS_NEEDED: (Specific step-by-step physical corrections for the user)
 """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
+    candidate_models = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash"]
+    headers = {
+        "x-goog-api-key": key,
+        "Content-Type": "application/json",
+    }
     payload = {
         "contents": [
             {
@@ -84,15 +91,23 @@ Format your response as a structured analysis:
         },
     }
 
-    try:
-        response = requests.post(url, json=payload, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        text_response = data["candidates"][0]["content"]["parts"][0]["text"]
-        return {
-            "success": True,
-            "image": str(img_file),
-            "analysis": text_response,
-        }
-    except Exception as e:
-        return {"success": False, "error": f"Gemini API request failed: {e}"}
+    last_err = None
+    for model in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                text_response = data["candidates"][0]["content"]["parts"][0]["text"]
+                return {
+                    "success": True,
+                    "image": str(img_file),
+                    "model_used": model,
+                    "analysis": text_response,
+                }
+            else:
+                last_err = f"HTTP {response.status_code}"
+        except Exception as e:
+            last_err = str(e)
+
+    return {"success": False, "error": f"Gemini Vision analysis unavailable: {last_err}"}

@@ -26,3 +26,40 @@ OPENOCD_TELNET_PORT = 4444
 
 # Default target workspace
 DEFAULT_PROJECT_DIR = HARNESS_DIR / "target_firmware" / "esp32s3_blink_fault"
+
+def get_gemini_api_key() -> str:
+    key = os.environ.get("GEMINI_API_KEY")
+    if key:
+        return key
+
+    # Check .env files
+    for env_path in [HARNESS_DIR / ".env", REPO_DIR / ".env"]:
+        if env_path.exists():
+            try:
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.strip() == "GEMINI_API_KEY":
+                            val = v.strip().strip('"').strip("'")
+                            if val:
+                                os.environ["GEMINI_API_KEY"] = val
+                                return val
+            except Exception:
+                pass
+
+    # Check Windows Registry (setx)
+    if sys.platform == "win32":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment") as reg:
+                val, _ = winreg.QueryValueEx(reg, "GEMINI_API_KEY")
+                if val:
+                    os.environ["GEMINI_API_KEY"] = val
+                    return val
+        except Exception:
+            pass
+
+    return ""
+
+GEMINI_API_KEY = get_gemini_api_key()

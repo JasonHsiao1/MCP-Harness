@@ -1,0 +1,34 @@
+# Python virtual environment & bytecode
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PlatformIO build artifacts
+.pio/
+target_firmware/**/.pio/
+*.bin
+*.elf
+*.map
+*.dblite
+
+# Camera captures & temporary image files
+captures/
+*.jpg
+*.jpeg
+*.png
+
+# Secrets & environment
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Logs & temp files
+*.log
+scratch/
+.system_generated/
+Thumbs.db
+.DS_Store

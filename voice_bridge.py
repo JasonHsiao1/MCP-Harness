@@ -330,6 +330,58 @@ void loop() {
         else:
             return "To modify code with open-ended voice prompts, please export your GEMINI_API_KEY, or type your request in Antigravity chat."
 
+    def inspect_circuit_prompt(self, target_spec: str = "") -> str:
+        """
+        Inspect the most recently captured photo of the breadboard / circuit
+        using Gemini Multimodal Vision and speak the findings.
+        """
+        captures_dir = HARNESS_DIR / "captures"
+        onedrive_pics = Path(os.environ.get("USERPROFILE", "")) / "OneDrive" / "Pictures"
+        user_pics = Path(os.environ.get("USERPROFILE", "")) / "Pictures"
+
+        candidates = []
+        for folder in [captures_dir, onedrive_pics, user_pics]:
+            if folder.exists():
+                for ext in ["*.jpg", "*.jpeg", "*.png"]:
+                    candidates.extend(folder.glob(ext))
+                    candidates.extend(folder.glob(f"**/{ext}"))
+
+        if not candidates:
+            return "No circuit photo found in captures or Pictures folder. Snap a photo with your glasses or drop an image into harness/captures."
+
+        # Unique & sort by last modified time
+        candidates = sorted(list(set(candidates)), key=lambda p: p.stat().st_mtime, reverse=True)
+        latest_photo = candidates[0]
+
+        print(f"\n[VISION] Inspecting latest photo: {latest_photo.name} ({latest_photo})")
+        self.speak("Analyzing circuit photo with Gemini Vision.")
+
+        spec = target_spec or (
+            "ESP32-S3 DevKit on breadboard. Push button on GPIO 4 with pull-down resistor to GND. "
+            "Onboard NeoPixel WS2812 on GPIO 38."
+        )
+
+        res = analyze_circuit_wiring(str(latest_photo), spec)
+        if not res.get("success"):
+            return f"Vision inspection failed: {res.get('error', 'Unknown error')}"
+
+        analysis = res.get("analysis", "")
+        print(f"\n================ [CIRCUIT INSPECTION RESULT] ================")
+        print(analysis)
+        print("=============================================================\n")
+
+        # Extract voice-friendly summary
+        summary = ""
+        for line in analysis.splitlines():
+            if "SUMMARY:" in line:
+                summary = line.split("SUMMARY:", 1)[1].strip().lstrip("*- ")
+                break
+
+        if not summary:
+            summary = analysis[:250].replace("*", "")
+
+        return f"Circuit analysis complete. {summary}"
+
     def execute_hardware_intent(self, text: str) -> str:
         """
         Process user speech intent and execute corresponding MCP hardware tools.
@@ -371,7 +423,11 @@ void loop() {
             else:
                 return f"Could not read serial port. {res.get('error', '')}"
 
-        # 5. Visualizer / "Show me"
+        # 5. Vision / Camera Circuit Inspection
+        elif any(w in low for w in ["check wiring", "inspect", "check circuit", "verify wiring", "look at", "camera", "photo", "wiring", "breadboard"]):
+            return self.inspect_circuit_prompt()
+
+        # 6. Visualizer / "Show me"
         elif any(w in low for w in ["show me", "visualize", "diagram", "schematic", "circuit", "pinout", "display"]):
             import webbrowser
             viz_path = HARNESS_DIR / "visualizer" / "index.html"

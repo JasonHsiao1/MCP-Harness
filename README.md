@@ -63,7 +63,70 @@ AI-Deck/
 
 ---
 
-## 3. Configuring the MCP Client
+## 3. Hardware-in-the-Loop (HIL) Multi-Bus Testbed & Autograder
+
+### Physical Multi-Bus Test Wiring Matrix
+
+| Subsystem | Signal Name | ESP32-S3 (DUT) | Pico 2 (Sniffer / Co-Proc) | External Peripheral | Description |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| **I2C Bus** | `SDA` | **GPIO 8** | **GP16** | MCP4725 SDA | 100 kHz I2C Fast-Write & PIO 9-bit Sniffer (SM1) |
+| | `SCL` | **GPIO 9** | **GP17** | MCP4725 SCL | Hardware ACK/NACK Capture |
+| **SPI Bus** | `MOSI` / RX | **GPIO 11** | **GP0** | ST7789 SDA | 1 MHz SPI Burst Receiver (PIO SM0) |
+| | `CSn` | **GPIO 10** | **GP1** | ST7789 CS | Active-Low Chip Select Sniffing |
+| | `SCK` | **GPIO 12** | **GP2** | ST7789 SCL | Clock Line (Rising edge sampling) |
+| | `MISO` / TX | **GPIO 13** | **GP3** | — | Pico TX / Return Line |
+| **UART0** | `TX` $\to$ `RX` | **GPIO 43** | **GP5** | CH9328 RX | 115200 Baud Full-Duplex Link |
+| | `RX` $\leftarrow$ `TX` | **GPIO 44** | **GP4** | CH9328 TX | Real-time echo back to ESP32 |
+| **Analog ADC** | `VOUT` | — | **GP28 (ADC2)** | MCP4725 VOUT | 12-bit ADC Voltage Telemetry (0.00V - 3.30V) |
+| **Power** | `3V3` / `GND` | 3V3 / GND | 3V3 / GND | VDD / GND | Common ground and 3.3V reference rail |
+
+```
+                       ┌─────────────────────────────────────────┐
+                       │          AI-DECK HARDWARE BENCH         │
+                       └────────────────────┬────────────────────┘
+                                            │
+        ┌───────────────────────────────────┴───────────────────────────────────┐
+        ▼                                                                       ▼
+┌──────────────────┐               [4-BUS TEST LINK]                  ┌──────────────────┐
+│  ESP32-S3 (DUT)  │                                                  │   Pico 2 RP2350  │
+│                  ├─────── GPIO 8 (I2C SDA) ───┬─────────────────────┤ GP16 (PIO SM1)   │
+│                  ├─────── GPIO 9 (I2C SCL) ───┼─────────────────────┤ GP17 (PIO SM1)   │
+│                  │                            │                     │                  │
+│                  ├─────── GPIO 11 (MOSI) ─────┼─────────────────────┤ GP0 (PIO SM0)    │
+│                  ├─────── GPIO 10 (CSn) ──────┼─────────────────────┤ GP1 (PIO SM0)    │
+│                  ├─────── GPIO 12 (SCK) ──────┼─────────────────────┤ GP2 (PIO SM0)    │
+│                  ├─────── GPIO 13 (MISO) ─────┴─────────────────────┤ GP3 (Unused/TX)  │
+│                  │                                                  │                  │
+│                  ├─────── GPIO 43 (U0TXD) ─────────────────────────►│ GP5 (UART1 RX)   │
+│                  │◄────── GPIO 44 (U0RXD) ──────────────────────────┤ GP4 (UART1 TX)   │
+│                  │                                                  │                  │
+│                  │                                     ┌────────────┤ GP28 (ADC2)      │
+└──────────────────┘                                     │            └──────────────────┘
+                                                         │
+                                        ┌────────────────┴──────────────┐
+                                        │  SparkFun MCP4725 12-bit DAC  │
+                                        │  I2C Address: 0x60            │
+                                        │  SDA: GPIO 8 | SCL: GPIO 9    │
+                                        │  VOUT ────────────────────────┘
+                                        └───────────────────────────────┘
+```
+
+### Closed-Loop Stimulus-Response Autograder Paradigm
+The AI-Deck autograder validates student designs not merely through static regex or build success, but via **real-time hardware stimulus and response verification**:
+1. **Pico Drives Stimulus**: The Pico simulates physical user input (e.g. driving a touch pad input or `UP_ARROW` key pin high/low, or providing analog sensor waveforms).
+2. **Target Microcontroller Executes**: The target MCU (ESP32-S3 or ESP32-C6) runs the student's debouncing, keymapping state machine, or PID loop.
+3. **Pico Intercepts & Validates Output**: The Pico captures the resulting output (e.g., verifying that pressing `UP_ARROW` triggers an 8-byte HID keyboard report over UART matching the keycode, or verifying that display SPI commands update the expected bounding box).
+4. **Demultiplexer Matrix Roadmap**: To accommodate flexible student pin assignments without rewiring, a future multiplexer / demux matrix (e.g. 74HC4067 / CD4051) dynamically routes whichever pins the student selected to the fixed Pico sniffer/stimulus channels.
+5. **Static Code Inspection (Pre-Check)**: Automated scripts inspect the student's code AST for required constructs (dirty-box rendering, 60 FPS frame limits, multi-key rollover buffers) before or alongside live dynamic execution.
+
+### Verification Suites
+- `test_multi_bus_all.py`: Simultaneously verifies 4 hardware buses (I2C DAC ACK, 1 MHz SPI PIO capture, full-duplex UART echo, and 12-bit ADC voltage reading).
+- `test_suites/verify_dancepad.py`: Evaluates capacitive touch handling, multi-key rollover (Pads 2, 5, 7, 10, 0, 11), and CH9328 8-byte UART HID reports.
+- `test_suites/verify_ddr_animation.py`: Evaluates ST7789 display SPI commands, 32x32 dirty-box sprite rendering, and 60 FPS timing.
+
+---
+
+## 4. Configuring the MCP Client
 
 To connect Antigravity, Claude Desktop, or VS Code to this MCP server:
 

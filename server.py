@@ -20,6 +20,7 @@ from tools.serial_tools import read_serial_logs
 from tools.openocd_tools import openocd_manager
 from tools.gdb_tools import session_manager
 from tools.vision_tools import analyze_circuit_wiring
+from tools.bus_tools import bus_ping, bus_check_health, bus_sniff_packets
 
 # Initialize MCP Server
 server = MCPServer(
@@ -256,6 +257,50 @@ def inspect_circuit_image(
         target_description=target_description,
         api_key=api_key,
     )
+
+
+# --- Bus Sniffing & Co-Processor Tools ---
+
+@server.tool()
+def bus_ping_coprocessor(port: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Ping the Pico 2 (RP2350) bus co-processor to verify USB-CDC connectivity.
+    
+    Args:
+        port: Optional COM port (e.g. 'COM4'). Auto-detects if omitted.
+    """
+    return bus_ping(port=port)
+
+
+@server.tool()
+def bus_check_pin_health(port: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Check the electrical state of I2C and SPI lines.
+    Verifies if pull-up resistors are active on SDA (GP16) & SCL (GP17)
+    and checks idle levels for SPI SCK (GP2), CS (GP1), MOSI (GP0).
+    
+    Args:
+        port: Optional COM port. Auto-detects if omitted.
+    """
+    return bus_check_health(port=port)
+
+
+@server.tool()
+def bus_sniff_traffic(
+    port: Optional[str] = None,
+    duration_sec: float = 3.0,
+    max_packets: int = 20,
+) -> Dict[str, Any]:
+    """
+    Passively sniff I2C frames and SPI bursts transmitted by the target microcontroller (ESP32-S3).
+    Decodes slave addresses, read/write flags, and SPI hex payloads using hardware PIO.
+    
+    Args:
+        port: Optional COM port. Auto-detects if omitted.
+        duration_sec: Capture window duration in seconds (default: 3.0).
+        max_packets: Maximum number of packets to return.
+    """
+    return bus_sniff_packets(port=port, duration_sec=duration_sec, max_packets=max_packets)
 
 
 # --- MCP Resources & Context ---

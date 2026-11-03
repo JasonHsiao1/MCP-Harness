@@ -121,12 +121,37 @@ The AI-Deck autograder validates student designs not merely through static regex
 
 ### Verification Suites & Tooling
 - `port_detect.py`: Unified cross-platform serial port auto-discovery engine. Uses USB VID/PID (`303A:1001` ESP32-S3 vs `2E8A:0005` Pico 2) and Linux sysfs inspection with automatic argument swap correction.
+- `minimcp.py`: Zero-dependency, pure-Python Model Context Protocol (MCP) server engine supporting both stdio and SSE daemon transports.
 - `test_multi_bus_all.py`: Simultaneously verifies 4 hardware buses (I2C DAC ACK, 1 MHz SPI PIO capture, full-duplex UART echo, and 12-bit ADC voltage reading).
 - `test_mcp4725_closed_loop.py`: Closed-loop autograder verifying commanded DAC voltages vs. actual measured ADC voltages with pass/fail tolerance metrics.
 - `test_bus_concept.py`: Checks I2C pull-ups, SPI idle lines, and streams live decoded packets.
 - `test_mcp4725.py`: Quick active I2C bus scan and DAC health check.
 - `test_suites/verify_dancepad.py`: Evaluates capacitive touch handling, multi-key rollover (Pads 2, 5, 7, 10, 0, 11), and CH9328 8-byte UART HID reports.
 - `test_suites/verify_ddr_animation.py`: Evaluates ST7789 display SPI commands, 32x32 dirty-box sprite rendering, and 60 FPS timing.
+
+### Live Autograder Verification Telemetry
+
+Running `python3 test_mcp4725_closed_loop.py` on the physical Buildroot appliance:
+
+```
+==================================================================
+   FINAL AUTOGRADER REPORT: CLOSED-LOOP MIXED-SIGNAL DAC TEST
+==================================================================
+Total Voltage Steps Evaluated : 25
+Steps Passing Tolerance (±150mV): 25/25
+  Step #1: Expected 2.00V -> Measured 2.014V (Err: 14.2mV) [OK]
+  Step #2: Expected 2.00V -> Measured 2.014V (Err: 14.2mV) [OK]
+  Step #3: Expected 2.00V -> Measured 2.015V (Err: 15.0mV) [OK]
+  Step #4: Expected 3.00V -> Measured 3.021V (Err: 20.8mV) [OK]
+  Step #7: Expected 0.50V -> Measured 0.508V (Err: 7.7mV) [OK]
+  Step #10: Expected 1.20V -> Measured 1.205V (Err: 4.8mV) [OK]
+  Step #20: Expected 0.50V -> Measured 0.506V (Err: 6.1mV) [OK]
+  Step #23: Expected 1.20V -> Measured 1.206V (Err: 6.0mV) [OK]
+  Step #25: Expected 1.20V -> Measured 1.206V (Err: 5.5mV) [OK]
+
+Autograder Verification Score : 100.0%
+==================================================================
+```
 
 ---
 

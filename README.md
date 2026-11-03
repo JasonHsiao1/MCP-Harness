@@ -119,8 +119,12 @@ The AI-Deck autograder validates student designs not merely through static regex
 4. **Demultiplexer Matrix Roadmap**: To accommodate flexible student pin assignments without rewiring, a future multiplexer / demux matrix (e.g. 74HC4067 / CD4051) dynamically routes whichever pins the student selected to the fixed Pico sniffer/stimulus channels.
 5. **Static Code Inspection (Pre-Check)**: Automated scripts inspect the student's code AST for required constructs (dirty-box rendering, 60 FPS frame limits, multi-key rollover buffers) before or alongside live dynamic execution.
 
-### Verification Suites
+### Verification Suites & Tooling
+- `port_detect.py`: Unified cross-platform serial port auto-discovery engine. Uses USB VID/PID (`303A:1001` ESP32-S3 vs `2E8A:0005` Pico 2) and Linux sysfs inspection with automatic argument swap correction.
 - `test_multi_bus_all.py`: Simultaneously verifies 4 hardware buses (I2C DAC ACK, 1 MHz SPI PIO capture, full-duplex UART echo, and 12-bit ADC voltage reading).
+- `test_mcp4725_closed_loop.py`: Closed-loop autograder verifying commanded DAC voltages vs. actual measured ADC voltages with pass/fail tolerance metrics.
+- `test_bus_concept.py`: Checks I2C pull-ups, SPI idle lines, and streams live decoded packets.
+- `test_mcp4725.py`: Quick active I2C bus scan and DAC health check.
 - `test_suites/verify_dancepad.py`: Evaluates capacitive touch handling, multi-key rollover (Pads 2, 5, 7, 10, 0, 11), and CH9328 8-byte UART HID reports.
 - `test_suites/verify_ddr_animation.py`: Evaluates ST7789 display SPI commands, 32x32 dirty-box sprite rendering, and 60 FPS timing.
 

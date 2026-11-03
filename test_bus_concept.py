@@ -18,33 +18,22 @@ import json
 import threading
 from pathlib import Path
 
+# Add harness dir to sys.path
+HARNESS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(HARNESS_DIR))
+
+try:
+    from port_detect import detect_ports
+except ImportError:
+    def detect_ports(esp_override=None, pico_override=None):
+        return (esp_override or "/dev/ttyACM1"), (pico_override or "/dev/ttyACM0")
+
 try:
     import serial
     import serial.tools.list_ports
 except ImportError:
     print("Error: pyserial is required. Run: pip install pyserial")
     sys.exit(1)
-
-
-def find_ports():
-    ports = list(serial.tools.list_ports.comports())
-    esp32_port = None
-    pico_port = None
-
-    for p in ports:
-        hwid = (p.hwid or "").upper()
-        desc = (p.description or "").upper()
-
-        if "303A:1001" in hwid or p.device == "COM3":
-            esp32_port = p.device
-        elif "2E8A" in hwid or "MICROPYTHON" in desc:
-            pico_port = p.device
-        elif p.device != "COM3":
-            # Candidate for Pico if not yet assigned
-            if not pico_port:
-                pico_port = p.device
-
-    return esp32_port, pico_port
 
 
 def run_bus_test(esp32_port: str, pico_port: str, duration_sec: int = 10):
@@ -56,7 +45,11 @@ def run_bus_test(esp32_port: str, pico_port: str, duration_sec: int = 10):
     print(f"[*] Test Duration        : {duration_sec} seconds")
     print("==================================================================\n")
 
-    pico_ser = serial.Serial(pico_port, 115200, timeout=1.0)
+    try:
+        pico_ser = serial.Serial(pico_port, 115200, timeout=1.0)
+    except Exception as e:
+        print(f"[!] Could not open Pico port ({pico_port}): {e}")
+        return
     time.sleep(0.1)
 
     # 1. Ping Pico 2
@@ -144,17 +137,19 @@ def run_bus_test(esp32_port: str, pico_port: str, duration_sec: int = 10):
 
 
 if __name__ == "__main__":
-    esp_port, pico_port = find_ports()
-    if len(sys.argv) > 1:
-        esp_port = sys.argv[1]
-    if len(sys.argv) > 2:
-        pico_port = sys.argv[2]
+    cli_arg1 = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else None
+    cli_arg2 = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("-") else None
+    duration = int(sys.argv[3]) if len(sys.argv) > 3 else 10
 
-    if not esp_port or not pico_port:
-        print("[!] Could not auto-detect both ports.")
-        print(f"    Detected ESP32 : {esp_port}")
-        print(f"    Detected Pico  : {pico_port}")
-        print("Usage: python test_bus_concept.py <ESP32_PORT> <PICO_PORT>")
-        sys.exit(1)
+    esp_port, pico_port = detect_ports(cli_arg1, cli_arg2)
 
-    run_bus_test(esp_port, pico_port)
+    # Check for inverted arguments
+    try:
+        for p in serial.tools.list_ports.comports():
+            if p.device == esp_port and p.vid == 0x2E8A:
+                esp_port, pico_port = pico_port, esp_port
+                break
+    except Exception:
+        pass
+
+    run_bus_test(esp_port, pico_port, duration_sec=duration)

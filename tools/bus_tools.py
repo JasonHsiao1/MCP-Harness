@@ -23,6 +23,13 @@ class PicoBusBridge:
         self.conn = None
 
     def auto_detect_pico_port(self) -> Optional[str]:
+        try:
+            from port_detect import detect_ports
+            _, pico = detect_ports()
+            return pico
+        except Exception:
+            pass
+
         if not serial:
             return None
         ports = list(serial.tools.list_ports.comports())
@@ -30,16 +37,13 @@ class PicoBusBridge:
             hwid = (p.hwid or "").upper()
             desc = (p.description or "").upper()
             # Raspberry Pi Pico / RP2350 USB VID is 2E8A
-            if "2E8A" in hwid or "MICROPYTHON" in desc or "PICO" in desc:
-                return p.device
-            # If not COM3 (which is ESP32-S3)
-            if "SERIAL" in desc and p.device != "COM3":
+            if (getattr(p, "vid", None) == 0x2E8A) or "2E8A" in hwid or "MICROPYTHON" in desc or "PICO" in desc:
                 return p.device
         
-        # Fallback: if only 2 ports exist and one is COM3, the other is likely Pico
-        non_com3 = [p.device for p in ports if p.device != "COM3"]
-        if len(non_com3) == 1:
-            return non_com3[0]
+        # Fallback: find any non-ESP32 port
+        candidates = [p.device for p in ports if getattr(p, "vid", None) != 0x303A and "303A" not in (p.hwid or "")]
+        if candidates:
+            return candidates[0]
         return None
 
     def connect(self, port: Optional[str] = None):

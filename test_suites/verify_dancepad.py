@@ -27,6 +27,7 @@ import os
 import sys
 import re
 import time
+from typing import Optional
 from pathlib import Path
 
 TARGET_DIR = Path(r"C:\jason\GeorgiaTech\Fall2026\ECE4180\solutions\Lab2\code\touchpad_hid_dancepad")
@@ -119,13 +120,20 @@ def verify_dancepad_code(sketch_path: Path, keymap_path: Path):
     return final_pct >= 80.0
 
 
-def verify_live_uart_hid(pico_port: str = "COM8", duration_sec: int = 5):
+def verify_live_uart_hid(pico_port: Optional[str] = None, duration_sec: int = 5):
     """Passively sniffs CH9328 UART HID reports from the ESP32 using Pico 2 UART1."""
     try:
         import serial
     except ImportError:
         print("[!] pyserial required for live UART sniffing.")
         return
+
+    if not pico_port:
+        try:
+            from port_detect import detect_ports
+            _, pico_port = detect_ports()
+        except Exception:
+            pico_port = "/dev/ttyACM0" if sys.platform.startswith("linux") else "COM8"
 
     print(f"[*] Listening to Pico 2 UART sniffer on {pico_port} for {duration_sec}s...")
     try:

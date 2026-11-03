@@ -14,11 +14,40 @@ import time
 import json
 import threading
 import re
-import serial
+from pathlib import Path
 
-ESP_PORT = "COM3"
-PICO_PORT = "COM8"
-DURATION_SEC = 12
+# Add harness dir to sys.path
+HARNESS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(HARNESS_DIR))
+
+try:
+    from port_detect import detect_ports
+except ImportError:
+    def detect_ports(esp_override=None, pico_override=None):
+        return (esp_override or "/dev/ttyACM1"), (pico_override or "/dev/ttyACM0")
+
+try:
+    import serial
+    import serial.tools.list_ports
+except ImportError:
+    print("Error: pyserial is required. Run: pip install pyserial")
+    sys.exit(1)
+
+
+cli_arg1 = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else None
+cli_arg2 = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("-") else None
+DURATION_SEC = int(sys.argv[3]) if len(sys.argv) > 3 else 12
+
+ESP_PORT, PICO_PORT = detect_ports(cli_arg1, cli_arg2)
+
+# Check for inverted arguments
+try:
+    for p in serial.tools.list_ports.comports():
+        if p.device == ESP_PORT and p.vid == 0x2E8A:
+            ESP_PORT, PICO_PORT = PICO_PORT, ESP_PORT
+            break
+except Exception:
+    pass
 
 print("==================================================================")
 print("   AI-Deck Closed-Loop Autograder: MCP4725 DAC <-> Pico 2 ADC2   ")
@@ -29,8 +58,19 @@ print(f"[*] Target Hardware      : SparkFun MCP4725 on I2C 0x60")
 print(f"[*] Analog Feedback Pin  : Pico GP28 (ADC2)")
 print("==================================================================\n")
 
-esp_ser = serial.Serial(ESP_PORT, 115200, timeout=0.5)
-pico_ser = serial.Serial(PICO_PORT, 115200, timeout=0.5)
+try:
+    esp_ser = serial.Serial(ESP_PORT, 115200, timeout=0.5)
+except Exception as e:
+    print(f"[!] Could not open ESP32 port ({ESP_PORT}): {e}")
+    sys.exit(1)
+
+try:
+    pico_ser = serial.Serial(PICO_PORT, 115200, timeout=0.5)
+except Exception as e:
+    print(f"[!] Could not open Pico port ({PICO_PORT}): {e}")
+    esp_ser.close()
+    sys.exit(1)
+
 time.sleep(0.2)
 
 stop_event = threading.Event()

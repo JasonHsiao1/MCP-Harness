@@ -2,7 +2,10 @@ import re
 import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from pygdbmi.gdbcontroller import GdbController
+try:
+    from pygdbmi.gdbcontroller import GdbController
+except ImportError:
+    GdbController = None
 
 from config import GDB_ESP32S3, GDB_ESP32C6
 
@@ -28,6 +31,9 @@ class GDBSessionManager:
     ) -> Dict[str, Any]:
         """Start a GDB session, load ELF symbols, and connect to remote OpenOCD."""
         self.stop_session()
+
+        if not GdbController:
+            return {"success": False, "error": "pygdbmi module is not installed."}
 
         elf_file = Path(elf_path).resolve()
         if not elf_file.exists():

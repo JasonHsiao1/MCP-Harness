@@ -13,7 +13,13 @@ from typing import Dict, Any, List, Optional
 # Add harness directory to python path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from mcp.server.mcpserver import MCPServer
+try:
+    from mcp.server.mcpserver import MCPServer
+except ImportError:
+    try:
+        from mcp.server.fastmcp import FastMCP as MCPServer
+    except ImportError:
+        from minimcp import MiniMCPServer as MCPServer
 from config import DEFAULT_PROJECT_DIR
 from tools.pio_tools import list_serial_devices, build_firmware, flash_firmware, clean_firmware
 from tools.serial_tools import read_serial_logs
@@ -342,5 +348,12 @@ Raspberry Pi Pico (RP2040) SWD & MMIO Reference:
 
 
 if __name__ == "__main__":
-    # Run over standard input/output (stdio transport) for MCP clients
-    server.run(transport="stdio")
+    transport = "sse" if ("--sse" in sys.argv or "--http" in sys.argv) else "stdio"
+    port = 8000
+    for arg in sys.argv[1:]:
+        if arg.startswith("--port="):
+            try:
+                port = int(arg.split("=")[1])
+            except ValueError:
+                pass
+    server.run(transport=transport, port=port)

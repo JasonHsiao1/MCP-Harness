@@ -46,6 +46,14 @@ class GlassesVoiceBridge:
         self.recognizer.energy_threshold = 300
         self.recognizer.dynamic_energy_threshold = True
 
+    def get_esp_port(self) -> str:
+        try:
+            from port_detect import detect_ports
+            esp, _ = detect_ports()
+            return esp or ("COM3" if sys.platform == "win32" else "/dev/ttyACM1")
+        except Exception:
+            return "COM3" if sys.platform == "win32" else "/dev/ttyACM1"
+
     def speak(self, text: str):
         """Speak response out loud (streams directly to Ray-Ban Meta open-ear speakers)."""
         print(f"\n[AI-DECK VOICE]: \"{text}\"")
@@ -135,7 +143,7 @@ Rules:
                 new_code = re.sub(r"\s*```$", "", new_code).strip()
                 MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
                 self.speak("Code generated. Now compiling and flashing to the board.")
-                flash_res = flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+                flash_res = flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
                 if flash_res["success"]:
                     return "Firmware updated and successfully flashed to the ESP32."
                 else:
@@ -166,7 +174,7 @@ void loop() {
 """
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Updating firmware to blink green. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware successfully updated to blink green."
 
         elif "red" in low:
@@ -190,7 +198,7 @@ void loop() {
 """
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Updating firmware to blink red. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware successfully updated to blink red."
 
         elif "blue" in low:
@@ -214,7 +222,7 @@ void loop() {
 """
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Updating firmware to blink blue. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware successfully updated to blink blue."
 
         elif "purple" in low or "violet" in low or "magenta" in low:
@@ -238,7 +246,7 @@ void loop() {
 """
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Updating firmware to blink purple. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware successfully updated to blink purple."
 
         elif "yellow" in low:
@@ -262,7 +270,7 @@ void loop() {
 """
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Updating firmware to blink yellow. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware successfully updated to blink yellow."
 
         elif "cyan" in low:
@@ -286,7 +294,7 @@ void loop() {
 """
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Updating firmware to blink cyan. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware successfully updated to blink cyan."
 
         elif "rainbow" in low:
@@ -310,21 +318,21 @@ void loop() {
 """
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Updating firmware to rainbow cycle. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware successfully updated to rainbow cycle."
 
         elif "fast" in low or "faster" in low or "speed up" in low:
             new_code = re.sub(r"delay\(\d+\);", "delay(120);", current_code)
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Speed set to fast. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware updated to fast blink."
 
         elif "slow" in low or "slower" in low:
             new_code = re.sub(r"delay\(\d+\);", "delay(900);", current_code)
             MAIN_CPP_PATH.write_text(new_code, encoding="utf-8")
             self.speak("Speed set to slow. Flashing now.")
-            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=self.get_esp_port())
             return "Firmware updated to slow blink."
 
         else:
@@ -395,9 +403,10 @@ void loop() {
         # 2. Flash / Upload firmware
         elif any(w in low for w in ["flash", "upload", "program board", "burn"]):
             self.speak("Building and flashing firmware to the ESP32.")
-            res = flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port="COM3")
+            esp_p = self.get_esp_port()
+            res = flash_firmware(str(DEFAULT_PROJECT_DIR), upload_port=esp_p)
             if res["success"]:
-                return "Firmware successfully flashed to the ESP32 on COM 3."
+                return f"Firmware successfully flashed to the ESP32 on {esp_p}."
             else:
                 err = res.get("stderr", "Unknown error")
                 return f"Flash failed. {err[:80]}"
@@ -414,7 +423,7 @@ void loop() {
         # 4. Read Serial Telemetry
         elif any(w in low for w in ["log", "logs", "serial", "telemetry", "output", "read"]):
             self.speak("Reading live telemetry from serial port.")
-            res = read_serial_logs("COM3", baudrate=115200, timeout_sec=2.5, max_lines=5)
+            res = read_serial_logs(self.get_esp_port(), baudrate=115200, timeout_sec=2.5, max_lines=5)
             if res["success"] and res["logs"]:
                 summary = f"Captured {res['lines_captured']} lines. Latest: {res['logs'][-1]}"
                 return summary

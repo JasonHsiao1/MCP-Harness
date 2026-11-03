@@ -21,6 +21,7 @@ import os
 import sys
 import re
 import time
+from typing import Optional
 from pathlib import Path
 
 TARGET_SKETCH = Path(r"C:\jason\GeorgiaTech\Fall2026\ECE4180\solutions\Lab2\code\ddr_arrow_animation\ddr_arrow_animation.ino")
@@ -88,13 +89,20 @@ def verify_static_code(sketch_path: Path):
     return final_pct >= 80.0
 
 
-def verify_live_spi_stream(pico_port: str = "COM8", duration_sec: int = 5):
+def verify_live_spi_stream(pico_port: Optional[str] = None, duration_sec: int = 5):
     """Passively sniffs SPI traffic from the target MCU using Pico 2 PIO."""
     try:
         import serial
     except ImportError:
         print("[!] pyserial required for live SPI sniffing.")
         return
+
+    if not pico_port:
+        try:
+            from port_detect import detect_ports
+            _, pico_port = detect_ports()
+        except Exception:
+            pico_port = "/dev/ttyACM0" if sys.platform.startswith("linux") else "COM8"
 
     print(f"[*] Connecting to Pico 2 on {pico_port} to verify live SPI frame bursts...")
     try:

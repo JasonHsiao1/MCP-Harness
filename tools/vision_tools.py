@@ -1,10 +1,15 @@
 import os
 import base64
 import json
+import mimetypes
 from pathlib import Path
 from typing import Dict, Any, Optional
 import requests
-from PIL import Image
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 
 from config import get_gemini_api_key
@@ -38,9 +43,17 @@ def analyze_circuit_wiring(
 
     # Verify and encode image
     try:
-        with Image.open(img_file) as img:
-            format_name = img.format.lower() if img.format else "jpeg"
-            mime_type = f"image/{format_name}"
+        mime_type = "image/jpeg"
+        if Image:
+            try:
+                with Image.open(img_file) as img:
+                    format_name = img.format.lower() if img.format else "jpeg"
+                    mime_type = f"image/{format_name}"
+            except Exception:
+                mime_type = mimetypes.guess_type(str(img_file))[0] or "image/jpeg"
+        else:
+            mime_type = mimetypes.guess_type(str(img_file))[0] or "image/jpeg"
+
         with open(img_file, "rb") as f:
             b64_data = base64.b64encode(f.read()).decode("utf-8")
     except Exception as e:
